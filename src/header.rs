@@ -15,7 +15,12 @@ pub enum HeaderType {
 
 #[derive(Debug, PartialEq, RustcDecodable, RustcEncodable)]
 pub enum Algorithm {
-    HS256, RS256,
+    HS256,
+    HS384, // @TODO
+    HS512, // @TODO
+    RS256,
+    RS384, // @TODO
+    RS512, // @TODO
 }
 
 impl Default for Header {
@@ -31,11 +36,7 @@ impl Default for Header {
 #[cfg(test)]
 mod tests {
     use Component;
-    use header::{
-        Algorithm,
-        Header,
-        HeaderType,
-    };
+    use header::{Algorithm, Header, HeaderType};
 
     #[test]
     fn from_base64() {

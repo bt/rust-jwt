@@ -2,18 +2,8 @@ extern crate crypto;
 extern crate rustc_serialize;
 
 use crypto::digest::Digest;
-use rustc_serialize::{
-    json,
-    Decodable,
-    Encodable,
-};
-use rustc_serialize::base64::{
-    self,
-    CharacterSet,
-    FromBase64,
-    Newline,
-    ToBase64,
-};
+use rustc_serialize::{json, Decodable, Encodable};
+use rustc_serialize::base64::{self, CharacterSet, FromBase64, Newline, ToBase64};
 pub use error::Error;
 pub use header::Header;
 pub use claims::Claims;
@@ -25,11 +15,10 @@ pub mod claims;
 mod crypt;
 
 #[derive(Debug, Default)]
-pub struct Token<H, C>
-    where H: Component, C: Component {
+pub struct Token {
     raw: Option<String>,
-    pub header: H,
-    pub claims: C,
+    pub header: Header,
+    pub claims: Claims,
 }
 
 pub trait Component: Sized {
@@ -38,8 +27,8 @@ pub trait Component: Sized {
 }
 
 impl<T> Component for T
-    where T: Encodable + Decodable + Sized {
-
+    where T: Encodable + Decodable + Sized
+{
     /// Parse from a string.
     fn from_base64(raw: &str) -> Result<T, Error> {
         let data = try!(raw.from_base64());
@@ -55,18 +44,17 @@ impl<T> Component for T
     }
 }
 
-impl<H, C> Token<H, C>
-    where H: Component, C: Component {
-    pub fn new(header: H, claims: C) -> Token<H, C> {
+impl Token {
+    pub fn new(header: Header, registered: Registered) -> Self {
         Token {
             raw: None,
             header: header,
-            claims: claims,
+            claims: Claims::new(registered),
         }
     }
 
     /// Parse a token from a string.
-    pub fn parse(raw: &str) -> Result<Token<H, C>, Error> {
+    pub fn parse(raw: &str) -> Result<Token, Error> {
         let pieces: Vec<_> = raw.split('.').collect();
 
         Ok(Token {
@@ -101,22 +89,14 @@ impl<H, C> Token<H, C>
         Ok(format!("{}.{}", data, sig))
     }
 
-	/// Generate the signed token from an rsa key.
+    /// Generate the signed token from an rsa key.
     pub fn sign_rsa(&self, key: &[u8]) -> Result<String, Error> {
         let header = try!(Component::to_base64(&self.header));
         let claims = try!(self.claims.to_base64());
         let data = format!("{}.{}", header, claims);
 
-		let sig = crypt::sign_rsa(&*data, key);
+        let sig = crypt::sign_rsa(&*data, key, &self.header.alg);
         Ok(format!("{}.{}", data, sig))
-    }
-}
-
-impl<H, C> PartialEq for Token<H, C>
-    where H: Component + PartialEq, C: Component + PartialEq{
-    fn eq(&self, other: &Token<H, C>) -> bool {
-        self.header == other.header &&
-        self.claims == other.claims
     }
 }
 
@@ -129,10 +109,7 @@ const BASE_CONFIG: base64::Config = base64::Config {
 
 #[cfg(test)]
 mod tests {
-    use crypt::{
-        sign,
-        verify,
-    };
+    use crypt::{sign, verify};
     use Claims;
     use Token;
     use header::Algorithm::HS256;
@@ -163,7 +140,9 @@ mod tests {
 
     #[test]
     pub fn raw_data() {
-        let raw = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ";
+        let raw = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.\
+                   eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.\
+                   TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ";
         let token = Token::<Header, Claims>::parse(raw).unwrap();
 
         {
