@@ -3,7 +3,6 @@ extern crate openssl;
 use crypto::digest::Digest;
 use crypto::hmac::Hmac;
 use crypto::mac::{Mac, MacResult};
-use crypto::sha2::Sha256;
 use rustc_serialize::base64::{FromBase64, ToBase64, Config, CharacterSet, Newline};
 use self::openssl::crypto::rsa;
 use self::openssl::crypto::hash;
