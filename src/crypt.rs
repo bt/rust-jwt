@@ -7,6 +7,7 @@ use crypto::sha2::Sha256;
 use rustc_serialize::base64::{FromBase64, ToBase64, Config, CharacterSet, Newline};
 use self::openssl::crypto::rsa;
 use self::openssl::crypto::hash;
+use std::io::Write;
 use super::header::Algorithm;
 use BASE_CONFIG;
 
@@ -19,24 +20,25 @@ pub fn sign<D: Digest>(data: &str, key: &[u8], digest: D) -> String {
     (*code).to_base64(BASE_CONFIG)
 }
 
+fn get_sha_algorithm(alg: &Algorithm) -> hash::Type {
+    match alg {
+        &Algorithm::RS256 => hash::Type::SHA256,
+        &Algorithm::RS384 => hash::Type::SHA384,
+        &Algorithm::RS512 => hash::Type::SHA512,
+        _ => panic!("Invalid RSA algorithm"),
+    }
+}
+
 pub fn sign_rsa(data: &str, key: &[u8], alg: &Algorithm) -> String {
     let private_key = rsa::RSA::private_key_from_pem(key).unwrap();
-    let mut hasher = match alg {
-        &Algorithm::RS256 => Sha256::new(),
-        _ => unimplemented!(),
-    };
-    let hash_type = match alg {
-        &Algorithm::RS256 => hash::Type::SHA256,
-        _ => unimplemented!(),
-    };
+    let sha_alg = get_sha_algorithm(alg);
 
-    hasher.input_str(data);
-    let data_bytes = hasher.output_bytes();
-    let mut data = vec![0u8; data_bytes];
-    let mut data = &mut data[..];
-    hasher.result(&mut data);
+    let mut hasher = hash::Hasher::new(sha_alg).unwrap();
+    hasher.write_all(data.as_bytes()).unwrap();
 
-    (private_key.sign(hash_type, data).unwrap()).to_base64(Config {
+    let digest = hasher.finish().unwrap();
+
+    (private_key.sign(sha_alg, &digest).unwrap()).to_base64(Config {
         char_set: CharacterSet::UrlSafe,
         newline: Newline::LF,
         pad: true,
