@@ -1,5 +1,6 @@
 extern crate crypto;
 extern crate rustc_serialize;
+extern crate time;
 
 use crypto::digest::Digest;
 use rustc_serialize::{json, Decodable, Encodable};

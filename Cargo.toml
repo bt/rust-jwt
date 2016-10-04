@@ -11,6 +11,7 @@ keywords = ["JWT", "token", "web"]
 license = "MIT"
 
 [dependencies]
+openssl = "0.8"
 rust-crypto = "0.2"
 rustc-serialize = "0.3"
-openssl = "0.8"
+time = "0.1.35"

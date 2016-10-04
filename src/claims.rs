@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
-use rustc_serialize::Decodable;
+use rustc_serialize;
+use rustc_serialize::{Decodable, Encodable};
 use rustc_serialize::base64::{
     FromBase64,
     ToBase64,
@@ -8,6 +9,7 @@ use rustc_serialize::json::{
     self,
     Decoder,
     Json,
+    ToJson,
 };
 use Component;
 use error::Error;
@@ -19,7 +21,23 @@ pub struct Claims {
     pub private: BTreeMap<String, Json>,
 }
 
-#[derive(Debug, Default, PartialEq, RustcDecodable, RustcEncodable)]
+impl Encodable for Claims {
+    fn encode<S: rustc_serialize::Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
+        self.to_json().encode(s)
+    }
+}
+
+impl ToJson for Claims {
+    fn to_json(&self) -> Json {
+        let mut tree = BTreeMap::new();
+
+        tree.insert("test".to_string(), Json::Boolean(true));
+
+        Json::Object(tree)
+    }
+}
+
+#[derive(Debug, Default, PartialEq, RustcDecodable)]
 pub struct Registered {
     pub iss: Option<String>,
     pub sub: Option<String>,
@@ -38,6 +56,19 @@ impl Claims {
         Claims {
             reg: reg,
             private: BTreeMap::new(),
+        }
+    }
+
+    pub fn has(&self, field: &str) -> bool {
+        match field {
+            "iss" => self.reg.iss.is_some(),
+            "sub" => self.reg.sub.is_some(),
+            "aud" => self.reg.aud.is_some(),
+            "exp" => self.reg.exp.is_some(),
+            "nbf" => self.reg.nbf.is_some(),
+            "iat" => self.reg.iat.is_some(),
+            "jti" => self.reg.jti.is_some(),
+            _ => panic!("Invalid field")
         }
     }
 }
@@ -72,16 +103,7 @@ impl Component for Claims {
     }
 
     fn to_base64(&self) -> Result<String, Error> {
-        // Extremely inefficient
-        let s = try!(json::encode(&self.reg));
-        let mut tree = match try!(Json::from_str(&*s)) {
-            Json::Object(x) => x,
-            _ => return Err(Error::Format),
-        };
-
-        tree.extend(self.private.clone());
-
-        let s = try!(json::encode(&tree));
+        let s = try!(json::encode(&self));
         let enc = (&*s).as_bytes().to_base64(BASE_CONFIG);
         Ok(enc)
     }
